@@ -4,6 +4,7 @@ import org.keycloak.models.ClientSessionContext;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.ProtocolMapperModel;
 import org.keycloak.models.UserSessionModel;
+import org.keycloak.protocol.ProtocolMapperUtils;
 import org.keycloak.protocol.oidc.mappers.AbstractOIDCProtocolMapper;
 import org.keycloak.protocol.oidc.mappers.OIDCAccessTokenMapper;
 import org.keycloak.protocol.oidc.mappers.OIDCAttributeMapperHelper;
@@ -12,14 +13,17 @@ import org.keycloak.protocol.oidc.mappers.UserInfoTokenMapper;
 import org.keycloak.provider.ProviderConfigProperty;
 import org.keycloak.representations.IDToken;
 
+import solymani.keycloak.custom.protocol.groupmapper.entity.CustomGroup;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author solymani-hossein
  */
 public class CustomGroupMapper extends AbstractOIDCProtocolMapper
-	implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
+		implements OIDCAccessTokenMapper, OIDCIDTokenMapper, UserInfoTokenMapper {
 
 	public static final String PROVIDER_ID = "oidc-custom-group-mapper";
 
@@ -29,8 +33,14 @@ public class CustomGroupMapper extends AbstractOIDCProtocolMapper
 	static final String ATTR_VALUE = "value";
 
 	static {
-		configProperties.add(new ProviderConfigProperty(ATTR_KEY, "Attribute key", "Group Attribute Key.", ProviderConfigProperty.STRING_TYPE,""));
-		configProperties.add(new ProviderConfigProperty(ATTR_VALUE, "Attribute value", "Group Attribute Value.", ProviderConfigProperty.STRING_TYPE,""));
+		configProperties.add(new ProviderConfigProperty(ATTR_KEY, "Attribute key", "Group Attribute Key.",
+				ProviderConfigProperty.STRING_TYPE, ""));
+
+		configProperties.add(new ProviderConfigProperty(ATTR_VALUE, "Attribute value", "Group Attribute Value.",
+				ProviderConfigProperty.STRING_TYPE, ""));
+
+		configProperties.add(new ProviderConfigProperty(ATTR_KEY, "Attribute key", "Group Attribute Key.",
+				ProviderConfigProperty.MULTIVALUED_LIST_TYPE, ""));
 
 		OIDCAttributeMapperHelper.addTokenClaimNameConfig(configProperties);
 		OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, CustomGroupMapper.class);
@@ -62,12 +72,47 @@ public class CustomGroupMapper extends AbstractOIDCProtocolMapper
 	}
 
 	@Override
-	protected void setClaim(IDToken token, ProtocolMapperModel mappingModel, UserSessionModel userSession, KeycloakSession keycloakSession, ClientSessionContext clientSessionCtx) {
-		int key = Integer.parseInt(mappingModel.getConfig().get(ATTR_KEY));
-		int value = Integer.parseInt(mappingModel.getConfig().get(ATTR_VALUE));
+	protected void setClaim(final IDToken token, final ProtocolMapperModel mappingModel,
+			final UserSessionModel userSession,
+			final KeycloakSession keycloakSession, final ClientSessionContext clientSessionCtx) {
+		final String key = mappingModel.getConfig().get(ATTR_KEY);
+		final String value = mappingModel.getConfig().get(ATTR_VALUE);
 
-		int randomNumber = (int) (Math.random() * (key - value)) + key;
+		mappingModel.getConfig().put(ProtocolMapperUtils.MULTIVALUED, "true");
 
-		OIDCAttributeMapperHelper.mapClaim(token, mappingModel, randomNumber);
+		var groups = userSession.getUser().getGroupsStream().map(group -> {
+
+			if (group.getAttributes() != null && group.getAttributes().containsKey(key)
+					&& group.getAttributes().get(key).contains(value)) {
+
+				return new CustomGroup(group.getId(), group.getName());
+
+			} else {
+				return null;
+			}
+		}).filter(data -> data != null);
+		OIDCAttributeMapperHelper.mapClaim(token, mappingModel, groups);
 	}
+
+	// private static List<CustomGroup> customGroups = new ArrayList<CustomGroup>();
+	// private static void filterGroupsRecursive(final Stream<GroupModel> groups,
+	// final String key) {
+	// CustomGroup customGroup = new CustomGroup();
+	//
+	// if (groups != null) {
+	//
+	// groups.forEach(group -> {
+	//
+	// if (group.getAttributes() != null && group.getAttributes().containsKey(key))
+	// {
+	// customGroup.setId(group.getId());
+	// customGroup.setName(group.getName());
+	// customGroups.add(customGroup);
+	//
+	// } else {
+	// }
+	// filterGroupsRecursive(group.getSubGroupsStream(), key);
+	// });
+	// }
+	// }
 }
