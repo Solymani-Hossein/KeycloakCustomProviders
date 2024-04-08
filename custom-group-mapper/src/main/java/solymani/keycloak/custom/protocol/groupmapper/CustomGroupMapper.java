@@ -39,9 +39,6 @@ public class CustomGroupMapper extends AbstractOIDCProtocolMapper
 		configProperties.add(new ProviderConfigProperty(ATTR_VALUE, "Attribute value", "Group Attribute Value.",
 				ProviderConfigProperty.STRING_TYPE, ""));
 
-		configProperties.add(new ProviderConfigProperty(ATTR_KEY, "Attribute key", "Group Attribute Key.",
-				ProviderConfigProperty.MULTIVALUED_LIST_TYPE, ""));
-
 		OIDCAttributeMapperHelper.addTokenClaimNameConfig(configProperties);
 		OIDCAttributeMapperHelper.addIncludeInTokensConfig(configProperties, CustomGroupMapper.class);
 	}
